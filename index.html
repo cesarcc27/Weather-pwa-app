@@ -1,0 +1,264 @@
+<!--
+Simple Weather PWA (Split Fahrenheit / Celsius)
+Files included in this single file for easy GitHub upload:
+1) index.html (this file)
+2) manifest.json (embedded below)
+3) service-worker.js (embedded below)
+Instructions:
+- Create a GitHub repo
+- Upload this file as index.html
+- Create manifest.json and service-worker.js using the provided sections
+- Enable GitHub Pages
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather Split PWA</title>
+
+  <!-- PWA Meta -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      background: linear-gradient(135deg, #5b5df0, #3b2fd4);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .card {
+      width: 90%;
+      max-width: 420px;
+      padding: 24px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      font-size: 18px;
+      opacity: 0.9;
+    }
+
+    .temps {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 30px 0;
+    }
+
+    .temp-box {
+      flex: 1;
+      padding: 10px;
+    }
+
+    .temp {
+      font-size: 64px;
+      font-weight: bold;
+    }
+
+    .label {
+      font-size: 18px;
+      opacity: 0.8;
+    }
+
+    .divider {
+      width: 2px;
+      height: 80px;
+      background: rgba(255,255,255,0.4);
+    }
+
+    .weather {
+      font-size: 22px;
+      margin-top: 10px;
+    }
+
+    .location {
+      font-size: 16px;
+      opacity: 0.85;
+      margin-top: 6px;
+    }
+
+    .refresh {
+      margin-top: 20px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 14px;
+      background: white;
+      color: #3b2fd4;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <span>Today</span>
+      <span id="date"></span>
+    </div>
+
+    <div class="temps">
+      <div class="temp-box">
+        <div id="tempF" class="temp">--°F</div>
+        <div class="label">Fahrenheit</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="temp-box">
+        <div id="tempC" class="temp">--°C</div>
+        <div class="label">Celsius</div>
+      </div>
+    </div>
+
+    <div id="weather" class="weather">Loading weather...</div>
+    <div id="location" class="location"></div>
+
+    <button class="refresh" onclick="getWeather()">Refresh</button>
+  </div>
+
+  <script>
+    const tempFEl = document.getElementById('tempF');
+    const tempCEl = document.getElementById('tempC');
+    const weatherEl = document.getElementById('weather');
+    const locationEl = document.getElementById('location');
+    const dateEl = document.getElementById('date');
+
+    function updateDate() {
+      const now = new Date();
+      dateEl.textContent = now.toLocaleDateString(undefined, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    async function getWeather() {
+      weatherEl.textContent = 'Getting location...';
+
+      if (!navigator.geolocation) {
+        weatherEl.textContent = 'Geolocation not supported';
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        locationEl.textContent = `Lat: ${lat.toFixed(2)}, Lon: ${lon.toFixed(2)}`;
+        weatherEl.textContent = 'Fetching weather...';
+
+        try {
+          // Using Open-Meteo (no API key required)
+          const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+          const res = await fetch(url);
+          const data = await res.json();
+
+          const tempC = data.current_weather.temperature;
+          const tempF = (tempC * 9/5) + 32;
+          const code = data.current_weather.weathercode;
+
+          tempCEl.textContent = `${Math.round(tempC)}°C`;
+          tempFEl.textContent = `${Math.round(tempF)}°F`;
+          weatherEl.textContent = getWeatherDescription(code);
+        } catch (err) {
+          weatherEl.textContent = 'Error loading weather';
+        }
+      }, () => {
+        weatherEl.textContent = 'Location permission denied';
+      });
+    }
+
+    function getWeatherDescription(code) {
+      const map = {
+        0: 'Clear Sky',
+        1: 'Mainly Clear',
+        2: 'Partly Cloudy',
+        3: 'Broken Clouds',
+        45: 'Fog',
+        48: 'Depositing Rime Fog',
+        51: 'Light Drizzle',
+        61: 'Rain',
+        71: 'Snow',
+        80: 'Rain Showers'
+      };
+      return map[code] || 'Weather updated';
+    }
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js');
+      });
+    }
+
+    updateDate();
+    getWeather();
+  </script>
+</body>
+</html>
+
+<!--
+Create this file as manifest.json:
+{
+  "name": "Weather Split App",
+  "short_name": "Weather",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#3b2fd4",
+  "theme_color": "#3b2fd4",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+-->
+
+<!--
+Create this file as service-worker.js:
+const CACHE_NAME = 'weather-pwa-v1';
+const urlsToCache = [
+  '/',
+  '/index.html'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+  );
+});
+
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request).then(response => response || fetch(event.request))
+  );
+});
+-->
